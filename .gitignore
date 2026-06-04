@@ -1,0 +1,11 @@
+# Secrets
+.env
+
+# Upstream clone (users clone it themselves)
+hermes-agent/
+
+# Runtime SSL certs
+certbot/
+
+# Internal docs
+KNOWLEDGE_BASE.md
