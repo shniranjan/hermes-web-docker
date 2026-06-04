@@ -43,13 +43,3 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-      - name: Make package public (optional but recommended)
-        run: |
-          gh api \
-            --method PATCH \
-            -H "Accept: application/vnd.github+json" \
-            /user/packages/container/${{ env.IMAGE_NAME }}/visibility \
-            -f visibility=public
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
