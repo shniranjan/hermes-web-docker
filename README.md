@@ -50,7 +50,18 @@ docker compose up -d
 
 The image is built automatically by GitHub Actions — no need to build locally.
 
-> **First pull is slow:** The Hermes Agent image includes Python, Node, prebuilt dashboard/TUI, and Playwright browsers. First pull takes 2-5 minutes depending on your connection. Subsequent pulls are incremental unless a new version is published.
+### Image Variants
+
+Two images are published to [GHCR](https://github.com/shniranjan/hermes-web-docker/pkgs/container/hermes-agent):
+
+| Tag | Description | Size | Best For |
+|---|---|---|---|
+| `:latest`, `:slim` | Slim runtime image (default) | ~1.5–2 GB | Dashboard, text chat, most adapters |
+| `:full` | Complete upstream image | ~2–3 GB | Full toolkit: Playwright browsing, ffmpeg, git-based skills, voice processing |
+
+The slim image strips build tools (`gcc`, `python3-dev`), Playwright browsers, `ffmpeg`, `git`, and `docker-cli`. Most users should start with `:latest`. If you need web browsing, voice memos, or dynamic skill cloning from git, switch to `:full` by changing the image tag in `docker-compose.yml`.
+
+> **First pull is slow:** The image is large. First pull takes 2–5 minutes depending on your connection. Subsequent pulls are incremental.
 
 ### 5. Open in Browser
 
