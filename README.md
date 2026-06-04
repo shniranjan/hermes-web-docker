@@ -43,11 +43,14 @@ Edit `init-ssl.sh` and set your domain, then run:
 ### 4. Pull the Auto-Built Image and Start
 
 ```bash
+# Pull the image first (it's large — ~2-3 GB — this may take a few minutes)
 docker compose pull hermes
 docker compose up -d
 ```
 
 The image is built automatically by GitHub Actions — no need to build locally.
+
+> **First pull is slow:** The Hermes Agent image includes Python, Node, prebuilt dashboard/TUI, and Playwright browsers. First pull takes 2-5 minutes depending on your connection. Subsequent pulls are incremental unless a new version is published.
 
 ### 5. Open in Browser
 

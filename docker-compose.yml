@@ -33,6 +33,7 @@ services:
     image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    pull_policy: missing   # only pull if image not already present
     ports:
       - "9119:9119"
     volumes:

@@ -6,6 +6,7 @@ services:
     image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes-local
     restart: unless-stopped
+    pull_policy: missing   # only pull if image not already present
     ports:
       - "9119:9119"
     volumes:
@@ -22,9 +23,4 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
 
 volumes:
-  hermes_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${HOME}/.hermes
+  hermes_data:  # managed named volume (no host bind mount required)
