@@ -7,5 +7,9 @@ hermes-agent/
 # Runtime SSL certs
 certbot/
 
-# Internal docs
+# Internal docs (never push)
 KNOWLEDGE_BASE.md
+AI_SELF_GUIDE.md
+
+# Project tool guide
+.continue/
