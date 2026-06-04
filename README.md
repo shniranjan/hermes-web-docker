@@ -1,7 +1,19 @@
 # Hermes Agent - Production Docker Setup
 
-Standalone Docker deployment of Hermes Agent with Nginx reverse proxy,
+Standalone Docker deployment of [Hermes Agent](https://github.com/NousResearch/hermes-agent) with Nginx reverse proxy,
 automatic Let's Encrypt SSL, and the complete web dashboard.
+
+## Credits
+
+This project is a Docker wrapper and deployment configuration for
+**[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)**,
+an open-source AI agent framework developed by [Nous Research](https://nousresearch.com).
+
+All the agent logic, web dashboard, gateway integrations, MCP support, and more
+are entirely their work. This repo simply provides a production-ready Docker Compose
+stack (Nginx + SSL + Certbot) to make self-hosting easier.
+
+Please star the [upstream repo](https://github.com/NousResearch/hermes-agent)!
 
 ## Quick Start
 
