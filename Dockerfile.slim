@@ -1,0 +1,56 @@
+# Stage 1: Uses the full hermes-agent:builder image passed via build-contexts
+# The workflow provides: build-contexts: full-image=docker-image://hermes-agent:builder
+# Any COPY --from=full-image references the full builder image
+
+FROM debian:stable-slim
+
+# Install only runtime essentials (no gcc, python-dev, ffmpeg, git, docker-cli)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        python3 \
+        python-is-python3 \
+        ripgrep \
+        procps \
+        openssh-client \
+        libolm3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the entire /opt/hermes from the builder
+COPY --from=full-image /opt/hermes /opt/hermes
+
+# Copy Node.js runtime
+COPY --from=full-image /usr/local/bin/node /usr/local/bin/
+COPY --from=full-image /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+    ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
+
+# Copy s6-overlay supervision + init
+COPY --from=full-image /etc/s6-overlay /etc/s6-overlay
+COPY --from=full-image /init /init
+
+# Copy the privilege-drop shim + wrapper
+COPY --from=full-image /opt/hermes/bin /opt/hermes/bin
+COPY --from=full-image /opt/hermes/docker /opt/hermes/docker
+
+# Ensure editable install link exists
+RUN ln -sf /opt/hermes /opt/hermes/.venv/lib/python3*/site-packages/hermes 2>/dev/null || true
+
+# ---------- Runtime setup ----------
+ENV PYTHONUNBUFFERED=1
+ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
+ENV HERMES_TUI_DIR=/opt/hermes/ui-tui
+ENV HERMES_HOME=/opt/data
+ENV PATH="/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:${PATH}"
+
+# Non-root user
+RUN useradd -u 10000 -m -d /opt/data hermes && \
+    mkdir -p /opt/data && \
+    chown -R hermes:hermes /opt/hermes
+
+VOLUME [ "/opt/data" ]
+
+ENTRYPOINT [ "/init", "/opt/hermes/docker/main-wrapper.sh" ]
+CMD [ ]

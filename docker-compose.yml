@@ -30,6 +30,7 @@ services:
 
   # --- Hermes Agent ---
   hermes:
+    # Use the slim image (default). Switch to :full for complete image with build tools, ffmpeg, git, docker-cli, Playwright
     image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped

@@ -34,12 +34,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build full upstream image (used as builder for slim image)
         uses: docker/build-push-action@v5
         with:
           context: /tmp/hermes-agent
           file: /tmp/hermes-agent/Dockerfile
+          load: true
+          tags: hermes-agent:builder
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Tag and push full image
+        run: |
+          docker tag hermes-agent:builder \
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:full
+          docker tag hermes-agent:builder \
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-full
+          docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:full
+          docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-full
+
+      - name: Build slim image and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.slim
           push: true
+          build-contexts: |
+            full-image=docker-image://hermes-agent:builder
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:slim
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
