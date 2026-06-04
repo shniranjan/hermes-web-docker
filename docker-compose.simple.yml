@@ -1,0 +1,32 @@
+# Local development stack — just Hermes Agent without Nginx or SSL.
+# Use this if you want to access the dashboard at http://localhost:9119
+
+services:
+  hermes:
+    build:
+      context: ./hermes-agent
+    image: hermes-agent:latest
+    container_name: hermes-local
+    restart: unless-stopped
+    ports:
+      - "9119:9119"
+    volumes:
+      - hermes_data:/opt/data
+    environment:
+      - HERMES_UID=${HERMES_UID:-1000}
+      - HERMES_GID=${HERMES_GID:-1000}
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_HOST=0.0.0.0
+      - HERMES_DASHBOARD_PORT=9119
+      - HERMES_DASHBOARD_INSECURE=1
+      - HERMES_GATEWAY_BOOTSTRAP_STATE=running
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+
+volumes:
+  hermes_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.hermes
