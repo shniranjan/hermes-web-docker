@@ -3,9 +3,7 @@
 
 services:
   hermes:
-    build:
-      context: ./hermes-agent
-    image: hermes-agent:latest
+    image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes-local
     restart: unless-stopped
     ports:

@@ -30,9 +30,7 @@ services:
 
   # --- Hermes Agent ---
   hermes:
-    build:
-      context: ./hermes-agent
-    image: hermes-agent:latest
+    image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
     ports:
@@ -56,11 +54,6 @@ services:
 
 volumes:
   hermes_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${HOME}/.hermes
 
 networks:
   hermes-net:

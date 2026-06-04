@@ -1,0 +1,55 @@
+name: Build and Publish Hermes Agent Image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # allows manual trigger
+
+env:
+  IMAGE_NAME: hermes-agent
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+
+      - name: Clone upstream hermes-agent
+        run: |
+          git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: /tmp/hermes-agent
+          file: /tmp/hermes-agent/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Make package public (optional but recommended)
+        run: |
+          gh api \
+            --method PATCH \
+            -H "Accept: application/vnd.github+json" \
+            /user/packages/container/${{ env.IMAGE_NAME }}/visibility \
+            -f visibility=public
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

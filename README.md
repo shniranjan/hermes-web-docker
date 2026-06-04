@@ -15,11 +15,13 @@ stack (Nginx + SSL + Certbot) to make self-hosting easier.
 
 Please star the [upstream repo](https://github.com/NousResearch/hermes-agent)!
 
-## Quick Start
+## Quick Start (No Local Clone Required)
+
+The Hermes Agent Docker image is **automatically built by GitHub Actions** and published to [GitHub Container Registry](https://github.com/shniranjan/hermes-web-docker/pkgs/container/hermes-agent). No local clone or manual build needed.
 
 ### 1. Configure Your Domain
 
-Edit `nginx.conf` and replace `your-domain.com` with your actual domain (3 places).
+Edit `nginx.conf` — replace `your-domain.com` with your actual domain (3 places).
 
 ### 2. Add Your API Keys
 
@@ -32,16 +34,20 @@ OPENAI_API_KEY=sk-...
 
 ### 3. Get SSL Certificates (first time only)
 
+Edit `init-ssl.sh` and set your domain, then run:
+
 ```bash
-# Stop any running services first
 ./init-ssl.sh
 ```
 
-### 4. Start Everything
+### 4. Pull the Auto-Built Image and Start
 
 ```bash
+docker compose pull hermes
 docker compose up -d
 ```
+
+The image is built automatically by GitHub Actions — no need to build locally.
 
 ### 5. Open in Browser
 
