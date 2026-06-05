@@ -21,16 +21,24 @@ The Hermes Agent Docker image is **automatically built by GitHub Actions** and p
 
 ### 1. Configure Your Domain
 
-Edit `nginx.conf` — replace `your-domain.com` with your actual domain (3 places).
+Edit `nginx.conf.template` — replace `your-domain.com` with your actual domain (3 places).
 
-### 2. Add Your API Keys
+### 2. Add Your API Keys and Access Secret
 
 Create a `.env` file:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
+
+# Generate a random 64-char key: openssl rand -hex 32
+ACCESS_KEY_SECRET=your-random-64-char-hex-key-here
 ```
+
+This `ACCESS_KEY_SECRET` protects your dashboard. Every request must include
+an `X-Access-Key` header matching this secret — otherwise Nginx returns 401.
+Treat it like an API key. The Hermes web dashboard includes this header
+automatically so you're never prompted in the browser.
 
 ### 3. Get SSL Certificates (first time only)
 
@@ -101,6 +109,7 @@ Visit **https://your-domain.com**
 |---|---|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key |
 | `OPENAI_API_KEY` | Your OpenAI API key |
+| `ACCESS_KEY_SECRET` | Shared secret for Nginx access-key protection (64 chars) |
 | `HERMES_DASHBOARD_INSECURE` | Set to `1` for local/no-OAuth access |
 
 ### Without HTTPS (Local Development)
