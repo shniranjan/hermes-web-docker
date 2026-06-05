@@ -8,6 +8,8 @@ services:
     container_name: hermes-local
     restart: unless-stopped
     pull_policy: missing   # only pull if image not already present
+    # Override CMD to keep the container alive.
+    command: sleep infinity
     ports:
       - "9119:9119"
     volumes:

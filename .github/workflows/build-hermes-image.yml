@@ -8,6 +8,7 @@ on:
 env:
   IMAGE_NAME: hermes-agent
   REGISTRY: ghcr.io
+  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build-and-push:
@@ -23,6 +24,11 @@ jobs:
       - name: Clone upstream hermes-agent
         run: |
           git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
+
+      - name: Set up QEMU multi-arch emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ env.PLATFORMS }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -40,6 +46,7 @@ jobs:
           context: /tmp/hermes-agent
           file: /tmp/hermes-agent/Dockerfile
           push: true
+          platforms: ${{ env.PLATFORMS }}
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:full
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-full
@@ -52,6 +59,7 @@ jobs:
           context: .
           file: ./Dockerfile.slim
           push: true
+          platforms: ${{ env.PLATFORMS }}
           build-contexts: |
             full-image=docker-image://${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-full
           tags: |
