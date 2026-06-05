@@ -37,8 +37,11 @@ ACCESS_KEY_SECRET=your-random-64-char-hex-key-here
 
 This `ACCESS_KEY_SECRET` protects your dashboard. Every request must include
 an `X-Access-Key` header matching this secret — otherwise Nginx returns 401.
-Treat it like an API key. The Hermes web dashboard includes this header
-automatically so you're never prompted in the browser.
+Treat it like an API key.
+
+**Browser note:** the Hermes dashboard does not automatically send this header.
+To access it through a browser you'll need a browser extension like ModHeader
+to inject the `X-Access-Key` header, or a script that adds it on every request.
 
 ### 3. Get SSL Certificates (first time only)
 
