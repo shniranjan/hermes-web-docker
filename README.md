@@ -6,6 +6,12 @@ Standalone Docker deployment of [Hermes Agent](https://github.com/NousResearch/h
 
 This project is a Docker wrapper and deployment configuration for **[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)**, an open-source AI agent framework by [Nous Research](https://nousresearch.com). All agent logic, web dashboard, gateway integrations, MCP support, and more are entirely their work. This repo provides production-ready Docker Compose stacks to make self-hosting painless.
 
+## What Makes This Different
+
+- **Zero pre-flight scripts.** No `./init-ssl.sh` or `./init-selfsigned.sh`. Everything happens inside the containers on `docker compose up -d`. The nginx and certbot containers generate or obtain certificates on first run, then persist them on shared volumes for subsequent restarts.
+- **Cookie-based auth for WebSocket.** The production stack uses a two-step chain: the browser sends `X-Access-Key` once, nginx validates it and sets an `HttpOnly`/`Secure`/`SameSite` cookie. All subsequent WebSocket and SSE connections carry that cookie automatically — no browser extensions needed.
+- **Three stacks, pick your level.** Local dev with no SSL, self-signed HTTPS for LAN, or full Let's Encrypt for production. All use the same Hermes image.
+
 ## Quick Start — Pick Your Stack
 
 | Stack | Compose File | SSL | Domain | Auth | When to use |
@@ -61,6 +67,19 @@ The production stack uses a **two-step cookie-based auth chain** so the browser 
 ```
 
 This avoids the "WebSocket can't send custom headers" problem. The cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, and expires after 24 hours (requiring re-auth with the actual key).
+
+### How to send the X-Access-Key
+
+The dashboard itself doesn't know about the access key — you need to inject it on the initial request:
+
+| Method | How |
+|---|---|
+| **Browser extension** | [ModHeader](https://modheader.com/) or similar — add `X-Access-Key` header with your secret |
+| **curl** | `curl -H "X-Access-Key: your-secret" https://your-domain.com` |
+| **Reverse proxy** | If you sit behind another proxy, add the header there |
+| **Bookmarklet** | Inject via a JavaScript bookmarklet that sets the header on load |
+
+Once authenticated, the cookie takes over for the session. No header needed on subsequent requests or WebSocket connections.
 
 ## Environment Variables (.env)
 
@@ -127,6 +146,18 @@ Two images published to [GHCR](https://github.com/shniranjan/hermes-web-docker/p
 | `:latest`, `:slim` | Slim runtime (~1.5–2 GB) | Dashboard, text chat, most adapters |
 | `:full` | Complete image (~2–3 GB) | Playwright browsing, ffmpeg, git, voice processing |
 
+**To switch to the full image**, change the image tag in your compose file to `:full`.
+
+### Building Your Own Image
+
+```bash
+# Build the slim image (default)
+docker build -f Dockerfile.slim -t hermes-agent:local .
+
+# Then reference it in docker-compose.yml:
+#   image: hermes-agent:local
+```
+
 ## Managing the Stack
 
 ```bash
@@ -169,3 +200,13 @@ Set correct UID/GID:
 ```bash
 HERMES_UID=$(id -u) HERMES_GID=$(id -g) docker compose up -d
 ```
+
+**Q: Browser won't connect to self-signed stack**
+- The certificate is self-signed — click **Advanced → Proceed to localhost (unsafe)**
+- Chrome: type `thisisunsafe` on the warning page
+- Firefox: click **Advanced → Accept the Risk and Continue**
+- If you changed the host or regenerated the cert, delete the old one:
+  ```bash
+  rm -rf certbot/conf
+  docker compose -f docker-compose.selfsigned.yml restart nginx
+  ```
