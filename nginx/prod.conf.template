@@ -1,0 +1,83 @@
+# Full production nginx config — SSL enabled.
+# Used after certbot has obtained the Let's Encrypt certificate.
+# Nginx is reloaded with this config by the certbot entrypoint script.
+#
+# Variables substituted by envsubst:
+#   ${DOMAIN}            — your domain (e.g. hermes.example.com)
+#   ${ACCESS_KEY_SECRET} — shared secret for X-Access-Key header
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    # Let's Encrypt ACME challenge (needed for renewals)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Redirect everything else to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # ── Root: validate access key / cookie, then proxy ──
+    location / {
+        set $deny "1";
+        if ($http_x_access_key = "${ACCESS_KEY_SECRET}") { set $deny "0"; }
+        if ($cookie_hermes_auth = "1")                    { set $deny "0"; }
+        if ($deny = "1") { return 401 "Unauthorized – missing or invalid access key"; }
+
+        add_header Set-Cookie "hermes_auth=1; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400" always;
+
+        proxy_pass http://hermes:9119;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /;
+    }
+
+    # ── WebSocket / SSE: check cookie only (browsers can't send custom headers on WS) ──
+    location /api/ws {
+        if ($cookie_hermes_auth != "1") { return 401; }
+        proxy_pass http://hermes:9119;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+
+    location /api/pty {
+        if ($cookie_hermes_auth != "1") { return 401; }
+        proxy_pass http://hermes:9119;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+
+    location /api/events {
+        if ($cookie_hermes_auth != "1") { return 401; }
+        proxy_pass http://hermes:9119;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+}

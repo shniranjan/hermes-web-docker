@@ -1,165 +1,171 @@
-# Hermes Agent - Production Docker Setup
+# Hermes Agent — Docker Deployment
 
-Standalone Docker deployment of [Hermes Agent](https://github.com/NousResearch/hermes-agent) with Nginx reverse proxy,
-automatic Let's Encrypt SSL, and the complete web dashboard.
+Standalone Docker deployment of [Hermes Agent](https://github.com/NousResearch/hermes-agent) with Nginx reverse proxy, Let's Encrypt SSL, and the complete web dashboard.
 
 ## Credits
 
-This project is a Docker wrapper and deployment configuration for
-**[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)**,
-an open-source AI agent framework developed by [Nous Research](https://nousresearch.com).
+This project is a Docker wrapper and deployment configuration for **[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)**, an open-source AI agent framework by [Nous Research](https://nousresearch.com). All agent logic, web dashboard, gateway integrations, MCP support, and more are entirely their work. This repo provides production-ready Docker Compose stacks to make self-hosting painless.
 
-All the agent logic, web dashboard, gateway integrations, MCP support, and more
-are entirely their work. This repo simply provides a production-ready Docker Compose
-stack (Nginx + SSL + Certbot) to make self-hosting easier.
+## Quick Start — Pick Your Stack
 
-Please star the [upstream repo](https://github.com/NousResearch/hermes-agent)!
+| Stack | Compose File | SSL | Domain | Auth | When to use |
+|---|---|---|---|---|---|
+| **Local** | `docker-compose.local.yml` | ❌ | ❌ | ❌ | Dev / testing, `http://localhost:9119` |
+| **Self-signed** | `docker-compose.selfsigned.yml` | ✅ self-signed | ❌ | ❌ | LAN access with HTTPS |
+| **Production** | `docker-compose.yml` | ✅ Let's Encrypt | ✅ required | ✅ cookie-based | Internet-facing deployment |
 
-## Quick Start (No Local Clone Required)
-
-The Hermes Agent Docker image is **automatically built by GitHub Actions** and published to [GitHub Container Registry](https://github.com/shniranjan/hermes-web-docker/pkgs/container/hermes-agent). No local clone or manual build needed.
-
-### 1. Configure Your Domain
-
-Edit `nginx.conf.template` — replace `your-domain.com` with your actual domain (3 places).
-
-### 2. Add Your API Keys and Access Secret
-
-Create a `.env` file:
+### Local (no SSL)
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-
-# Generate a random 64-char key: openssl rand -hex 32
-ACCESS_KEY_SECRET=your-random-64-char-hex-key-here
+docker compose -f docker-compose.local.yml up -d
+# Open http://localhost:9119
 ```
 
-This `ACCESS_KEY_SECRET` protects your dashboard. Every request must include
-an `X-Access-Key` header matching this secret — otherwise Nginx returns 401.
-Treat it like an API key.
-
-**Browser note:** the Hermes dashboard does not automatically send this header.
-To access it through a browser you'll need a browser extension like ModHeader
-to inject the `X-Access-Key` header, or a script that adds it on every request.
-
-### 3. Get SSL Certificates (first time only)
-
-Edit `init-ssl.sh` and set your domain, then run:
+### Self-Signed HTTPS (local / LAN)
 
 ```bash
-./init-ssl.sh
+docker compose -f docker-compose.selfsigned.yml up -d
+# Open https://localhost (accept the security warning)
 ```
 
-### 4. Pull the Auto-Built Image and Start
+The certificate is generated automatically on first run. No pre-flight scripts.
+
+### Production (Let's Encrypt + Domain)
+
+**Prerequisites:** Your domain DNS must point to this server. Ports 80 and 443 must be reachable.
 
 ```bash
-# Pull the image first (it's large — ~2-3 GB — this may take a few minutes)
-docker compose pull hermes
+cp .env.example .env
+# Edit .env — set DOMAIN, ACCESS_KEY_SECRET, and at least one API key
+nano .env
+
 docker compose up -d
 ```
 
-The image is built automatically by GitHub Actions — no need to build locally.
+That's it. On first run:
+1. Nginx starts with a bootstrap config (HTTP only, ACME challenge passthrough)
+2. Certbot obtains a Let's Encrypt certificate via webroot mode
+3. Nginx is automatically reloaded with full SSL config
 
-### Image Variants
+Renewals happen automatically every 12 hours in the background.
 
-Two images are published to [GHCR](https://github.com/shniranjan/hermes-web-docker/pkgs/container/hermes-agent):
+## Access Security (Production)
 
-| Tag | Description | Size | Best For |
+The production stack uses a **two-step cookie-based auth chain** so the browser dashboard works seamlessly:
+
+```
+1. Browser loads https://domain.com  →  sends X-Access-Key: your-secret
+2. Nginx validates the key            →  sets hermes_auth=1 cookie
+3. Dashboard opens WebSocket/SSE      →  browser auto-attaches cookie
+4. Nginx checks cookie                →  allows WebSocket connection
+```
+
+This avoids the "WebSocket can't send custom headers" problem. The cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, and expires after 24 hours (requiring re-auth with the actual key).
+
+## Environment Variables (.env)
+
+Copy `.env.example` to `.env` and fill in:
+
+| Variable | Stack | Required? | Description |
 |---|---|---|---|
-| `:latest`, `:slim` | Slim runtime image (default) | ~1.5–2 GB | Dashboard, text chat, most adapters |
-| `:full` | Complete upstream image | ~2–3 GB | Full toolkit: Playwright browsing, ffmpeg, git-based skills, voice processing |
-
-The slim image strips build tools (`gcc`, `python3-dev`), Playwright browsers, `ffmpeg`, `git`, and `docker-cli`. Most users should start with `:latest`. If you need web browsing, voice memos, or dynamic skill cloning from git, switch to `:full` by changing the image tag in `docker-compose.yml`.
-
-> **First pull is slow:** The image is large. First pull takes 2–5 minutes depending on your connection. Subsequent pulls are incremental.
-
-### 5. Open in Browser
-
-Visit **https://your-domain.com**
+| `ANTHROPIC_API_KEY` | All | Recommended | Anthropic API key |
+| `OPENAI_API_KEY` | All | Recommended | OpenAI API key |
+| `DEEPSEEK_API_KEY` | All | Recommended | DeepSeek API key |
+| `DOMAIN` | Production | **Yes** | Your domain (e.g. `hermes.example.com`) |
+| `ACCESS_KEY_SECRET` | Production | **Yes** | Shared secret for dashboard protection |
+| `EMAIL` | Production | No | Email for Let's Encrypt notifications |
+| `HERMES_UID` | All | No | UID inside container (default: 1000) |
+| `HERMES_GID` | All | No | GID inside container (default: 1000) |
+| `HERMES_DASHBOARD_INSECURE` | All | No | Set to 0 to disable INSECURE mode |
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│                   Docker Host                                                      │
-│                                                                                   │
-│  ┌──────────┐     ┌──────────┐     ┌──────────────┐    │
-│  │  Nginx          │──▶│  Hermes        │──▶│  LLM APIs              │    │
-│  │  :443           │     │  :9119         │     │  (Anthropic,           │    │
-│  │  HTTPS          │     │                │     │   OpenAI, etc)         │    │
-│  └──────────┘     └──────────┘     └──────────────┘    │
-│                                                                                   │
-│  ┌──────────┐                                                             │
-│  │  Certbot        │  (auto-renew every 12h)                                     │
-│  └──────────┘                                                             │
-└──────────────────────────────────────────────────┘
+                 Port 443 (HTTPS)                                       Port 80 (ACME)
+                      │                                                      │
+                 ┌────▼─────┐                                          ┌─────▼──────┐
+                 │  Nginx   │◄── reload after cert obtained ──────────│  Certbot   │
+                 │  :443    │                                          │  auto-renew│
+                 └────┬─────┘                                          └────────────┘
+                      │
+                 Port 9119
+                      │
+                 ┌────▼─────┐     ┌──────────────┐
+                 │  Hermes  │────▶│  LLM APIs     │
+                 │  :9119   │     │  (Anthropic,  │
+                 └──────────┘     │   OpenAI,     │
+                                  │   DeepSeek)   │
+                                  └──────────────┘
 ```
 
-## Services
+## File Structure
 
-| Service | Description | Port |
-|---------|-------------|------|
-| `hermes` | Hermes Agent (gateway + dashboard) | 9119 (internal) |
-| `nginx` | Reverse proxy with HTTPS | 80, 443 |
-| `certbot` | Automatic Let's Encrypt renewal | - |
-
-## Configuration
-
-### Environment Variables (.env)
-
-| Variable | Description |
-|---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `OPENAI_API_KEY` | Your OpenAI API key |
-| `ACCESS_KEY_SECRET` | Shared secret for Nginx access-key protection (64 chars) |
-| `HERMES_DASHBOARD_INSECURE` | Set to `1` for local/no-OAuth access |
-
-### Without HTTPS (Local Development)
-
-For local use without a domain, use the simpler `docker-compose.simple.yml`:
-
-```bash
-docker compose -f docker-compose.simple.yml up -d
-# Open http://localhost:9119
+```
+├── docker-compose.yml              # Production: Nginx + Certbot + Hermes
+├── docker-compose.selfsigned.yml   # Local HTTPS with self-signed cert
+├── docker-compose.local.yml        # Hermes only, no SSL
+├── .env.example                    # All supported environment variables
+├── nginx/
+│   ├── prod-bootstrap.conf.template # Bootstrap config (pre-SSL, ACME passthrough)
+│   ├── prod.conf.template          # Full production SSL config
+│   └── selfsigned.conf             # Self-signed HTTPS config
+├── scripts/
+│   ├── certbot-entrypoint.sh       # Initial cert + renewal loop
+│   └── nginx-selfsigned-entrypoint.sh  # Self-signed cert generation
+├── Dockerfile.slim                 # Slim image build
+└── certbot/                        # Shared volume (certs + ACME challenges)
+    ├── www/                        # ACME challenge webroot
+    └── conf/                       # Let's Encrypt certs
 ```
 
-## Volume Persistence
+## Image Variants
 
-Configuration and state are stored in `~/.hermes` on the host. This includes:
-- `config.yaml` - Hermes configuration
-- `.env` - API keys
-- `sessions/` - Chat sessions
-- `models/` - Model configurations
-- `skills/` - Installed skills
+Two images published to [GHCR](https://github.com/shniranjan/hermes-web-docker/pkgs/container/hermes-agent):
 
-## Managing the Agent
+| Tag | Description | Best For |
+|---|---|---|
+| `:latest`, `:slim` | Slim runtime (~1.5–2 GB) | Dashboard, text chat, most adapters |
+| `:full` | Complete image (~2–3 GB) | Playwright browsing, ffmpeg, git, voice processing |
+
+## Managing the Stack
 
 ```bash
 # View logs
 docker compose logs -f hermes
+docker compose logs -f certbot
 
-# Access the CLI
-docker compose exec hermes hermes status
-docker compose exec hermes hermes models list
+# Access the Hermes CLI
+docker compose exec hermes /opt/hermes/.venv/bin/hermes status
 
 # Restart
 docker compose restart
 
-# Rebuild after changes
-docker compose build --no-cache
-docker compose up -d
+# Stop everything
+docker compose down
+
+# Use a different compose file
+docker compose -f docker-compose.selfsigned.yml logs -f nginx
 ```
 
 ## Troubleshooting
 
-**Q: Dashboard shows 'Gateway not connected'**
-- Check: `docker compose exec hermes hermes gateway status`
-- Restart: `docker compose restart hermes`
+**Q: Dashboard shows "Gateway not connected"**
+Check: `docker compose exec hermes /opt/hermes/.venv/bin/hermes gateway status`
+The gateway starts inside the container — verify `HERMES_GATEWAY_BOOTSTRAP_STATE=running` is set.
 
 **Q: SSL certificate won't issue**
-- Ensure port 80 is open and your domain DNS points to this server
-- Check: `docker compose logs certbot`
+- DNS must point to this server and propagate
+- Port 80 must be open to the internet
+- Check logs: `docker compose logs certbot`
+- Make sure `DOMAIN` is set correctly in `.env`
 
-**Q: Permission errors on ~/.hermes**
-- Set correct UID/GID: `HERMES_UID=$(id -u) HERMES_GID=$(id -g) docker compose up -d`
+**Q: Cookie auth not working / 401 on WebSocket**
+- Make sure you access the dashboard via HTTPS (the cookie is `Secure`)
+- Clear cookies and re-authenticate with the `X-Access-Key` header
+- Check `ACCESS_KEY_SECRET` in `.env` matches what you're sending
+
+**Q: Permission errors**
+Set correct UID/GID:
+```bash
+HERMES_UID=$(id -u) HERMES_GID=$(id -g) docker compose up -d
+```

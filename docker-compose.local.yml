@@ -1,14 +1,13 @@
-# Local development stack — just Hermes Agent without Nginx or SSL.
-# Use this if you want to access the dashboard at http://localhost:9119
+# Local development stack — Hermes Agent only, no nginx, no SSL.
+# Just `docker compose -f docker-compose.local.yml up -d`
+# Dashboard at http://localhost:9119
 
 services:
   hermes:
-    # Use the slim image by default. Switch to :full for complete image with build tools, ffmpeg, git, docker-cli, Playwright
     image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes-local
     restart: unless-stopped
-    pull_policy: missing   # only pull if image not already present
-    # Override CMD to keep the container alive.
+    pull_policy: missing
     command: sleep infinity
     ports:
       - "9119:9119"
@@ -20,10 +19,11 @@ services:
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_HOST=0.0.0.0
       - HERMES_DASHBOARD_PORT=9119
-      - HERMES_DASHBOARD_INSECURE=1
+      - HERMES_DASHBOARD_INSECURE=${HERMES_DASHBOARD_INSECURE:-1}
       - HERMES_GATEWAY_BOOTSTRAP_STATE=running
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
 
 volumes:
-  hermes_data:  # managed named volume (no host bind mount required)
+  hermes_data:
