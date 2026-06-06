@@ -20,7 +20,7 @@ This project is a Docker wrapper and deployment configuration for **[NousResearc
 | Stack | Compose File | SSL | Domain | Auth | When to use |
 |---|---|---|---|---|---|
 | **Local** | `docker-compose.local.yml` | ❌ | ❌ | ❌ | Dev / testing, `http://localhost:9119` |
-| **Self-signed** | `docker-compose.selfsigned.yml` | ✅ self-signed | ❌ | ❌ | LAN access with HTTPS |
+| **Self-signed** | `docker-compose.selfsigned.yml` | ✅ self-signed | ❌ | ✅ cookie-based | LAN access with HTTPS |
 | **Production** | `docker-compose.yml` | ✅ Let's Encrypt | ✅ required | ✅ cookie-based | Internet-facing deployment |
 
 ### Local (no SSL)
@@ -33,11 +33,15 @@ docker compose -f docker-compose.local.yml up -d
 ### Self-Signed HTTPS (local / LAN)
 
 ```bash
+cp .env.example .env
+# Edit .env — set ACCESS_KEY_SECRET + at least one API key
+nano .env
+
 docker compose -f docker-compose.selfsigned.yml up -d
 # Open https://localhost (accept the security warning)
 ```
 
-The certificate is generated automatically on first run. No pre-flight scripts.
+The certificate is generated automatically on first run. Access is protected by the same cookie-based auth as production (send `X-Access-Key` header, browser gets a session cookie).
 
 ### Production (Let's Encrypt + Domain)
 
@@ -94,7 +98,7 @@ Copy `.env.example` to `.env` and fill in:
 | `OPENAI_API_KEY` | All | Recommended | OpenAI API key |
 | `DEEPSEEK_API_KEY` | All | Recommended | DeepSeek API key |
 | `DOMAIN` | Production | **Yes** | Your domain (e.g. `hermes.example.com`) |
-| `ACCESS_KEY_SECRET` | Production | **Yes** | Shared secret for dashboard protection |
+| `ACCESS_KEY_SECRET` | Production, Self-signed | **Yes** | Shared secret for dashboard protection |
 | `EMAIL` | Production | No | Email for Let's Encrypt notifications |
 | `HERMES_UID` | All | No | UID inside container (default: 1000) |
 | `HERMES_GID` | All | No | GID inside container (default: 1000) |
