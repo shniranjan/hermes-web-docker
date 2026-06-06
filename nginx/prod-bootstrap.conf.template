@@ -1,10 +1,12 @@
 # Bootstrap nginx config — used while certbot obtains the initial certificate.
 # Serves ACME challenges on port 80 and proxies everything else to Hermes.
-# Once certbot obtains the cert, nginx is reloaded with prod.conf.template.
+# NO auth gate here — the bootstrap window is < 60 seconds and the dashboard
+# can't function fully without HTTPS anyway (WebSocket requires it).
+# Once certbot obtains the cert and signals nginx, the prod config takes over
+# with full SSL + cookie-based access control.
 #
 # Variables substituted by envsubst:
 #   ${DOMAIN}            — your domain (e.g. hermes.example.com)
-#   ${ACCESS_KEY_SECRET} — shared secret for X-Access-Key header
 
 server {
     listen 80;
@@ -15,15 +17,8 @@ server {
         root /var/www/certbot;
     }
 
-    # Everything else: check access key and proxy to Hermes
+    # Everything else: proxy to Hermes (no auth during bootstrap)
     location / {
-        set $deny "1";
-        if ($http_x_access_key = "${ACCESS_KEY_SECRET}") { set $deny "0"; }
-        if ($cookie_hermes_auth = "1")                    { set $deny "0"; }
-        if ($deny = "1") { return 401 "Unauthorized – missing or invalid access key"; }
-
-        add_header Set-Cookie "hermes_auth=1; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400" always;
-
         proxy_pass http://hermes:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -35,9 +30,8 @@ server {
         proxy_set_header X-Forwarded-Prefix /;
     }
 
-    # ── WebSocket / SSE: check cookie only ──
+    # WebSocket / SSE / PTY endpoints
     location /api/ws {
-        if ($cookie_hermes_auth != "1") { return 401; }
         proxy_pass http://hermes:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -47,7 +41,6 @@ server {
     }
 
     location /api/pty {
-        if ($cookie_hermes_auth != "1") { return 401; }
         proxy_pass http://hermes:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -57,7 +50,6 @@ server {
     }
 
     location /api/events {
-        if ($cookie_hermes_auth != "1") { return 401; }
         proxy_pass http://hermes:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

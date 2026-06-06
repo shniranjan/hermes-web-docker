@@ -4,12 +4,14 @@
 # Phase 1 — Initial certificate (first run only):
 #   Uses certbot in webroot mode — nginx is already running with the
 #   bootstrap config and serving ACME challenges from /var/www/certbot.
-#   Once the cert is obtained, rewrites the nginx config to the full
-#   SSL version and reloads nginx.
+#   Once the cert is obtained, signals nginx to swap to full SSL config.
 #
 # Phase 2 — Renewal loop (always):
 #   Checks twice daily and auto-renews when within 30 days of expiry.
-#   Renewals don't need port 80 — certbot uses the webroot again.
+#   Signals nginx after each successful renewal so it picks up the new cert.
+#
+# Nginx handles its own config switching — certbot only obtains/renews
+# certs and signals.
 
 set -e
 
@@ -25,8 +27,7 @@ echo "=== Certbot entrypoint starting for $DOMAIN ==="
 if [ ! -f "$CERT_FILE" ]; then
     echo "=== No certificate found. Requesting initial Let's Encrypt certificate ==="
 
-    # nginx should already be running with the bootstrap config.
-    # Wait for nginx to be ready.
+    # Wait for nginx to be ready (bootstrap config, serving ACME challenges).
     echo "Waiting for nginx to be ready on port 80..."
     for i in $(seq 1 30); do
         if wget -q -O /dev/null http://localhost/.well-known/acme-challenge/ 2>/dev/null \
@@ -49,16 +50,10 @@ if [ ! -f "$CERT_FILE" ]; then
         --force-renewal \
         -d "$DOMAIN"
 
-    echo "=== Certificate obtained! ==="
+    echo "=== Certificate obtained! Signaling nginx to switch to production SSL ==="
 
-    # Swap nginx to the full SSL config.
-    echo "=== Switching nginx to production SSL config ==="
-    envsubst '${DOMAIN} ${ACCESS_KEY_SECRET}' \
-        < /etc/nginx/conf.d/prod.conf.template \
-        > /etc/nginx/conf.d/default.conf
-
-    echo "=== Reloading nginx ==="
-    nginx -s reload
+    # Signal nginx — it will detect the cert file and swap to prod config.
+    docker kill -s HUP hermes-nginx
 
     echo "=== Production SSL is live! Access your dashboard at https://$DOMAIN ==="
 else
@@ -68,7 +63,12 @@ fi
 # ── Phase 2: Renewal loop ─────────────────────────────────────────────
 echo "=== Starting renewal loop (checks every 12h) ==="
 while :; do
+    echo "=== $(date): Running certbot renew ==="
     certbot renew --quiet --webroot --webroot-path /var/www/certbot
-    nginx -s reload 2>/dev/null || true
+
+    # Signal nginx to reload the renewed certificate.
+    echo "=== Signaling nginx to reload certs ==="
+    docker kill -s HUP hermes-nginx 2>/dev/null || echo "(nginx signal skipped — container may not be running)"
+
     sleep 12h
 done

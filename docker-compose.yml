@@ -20,8 +20,6 @@ services:
     restart: unless-stopped
     pull_policy: missing
     command: sleep infinity
-    ports:
-      - "9119:9119"
     volumes:
       - hermes_data:/opt/data
     environment:
@@ -52,15 +50,11 @@ services:
     volumes:
       - ./nginx/prod-bootstrap.conf.template:/etc/nginx/conf.d/bootstrap.conf.template:ro
       - ./nginx/prod.conf.template:/etc/nginx/conf.d/prod.conf.template:ro
+      - ./scripts/nginx-prod-entrypoint.sh:/entrypoint.sh:ro
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
-    entrypoint: /bin/sh -c "
-      envsubst '\$\$DOMAIN \$\$ACCESS_KEY_SECRET' \
-        < /etc/nginx/conf.d/bootstrap.conf.template \
-        > /etc/nginx/conf.d/default.conf \
-      && echo 'nginx bootstrap config rendered' \
-      && exec nginx -g 'daemon off;'
-      "
+    entrypoint: /bin/sh
+    command: /entrypoint.sh
     depends_on:
       - hermes
     networks:
