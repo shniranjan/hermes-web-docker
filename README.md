@@ -6,6 +6,9 @@ Standalone Docker deployment of [Hermes Agent](https://github.com/NousResearch/h
 
 This project is a Docker wrapper and deployment configuration for **[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)**, an open-source AI agent framework by [Nous Research](https://nousresearch.com). All agent logic, web dashboard, gateway integrations, MCP support, and more are entirely their work. This repo provides production-ready Docker Compose stacks to make self-hosting painless.
 
+> [!WARNING]
+> **Disclaimer:** This is an unofficial community deployment template and is **not affiliated with, endorsed by, or maintained by Nous Research.** Use at your own risk. You are responsible for securing your deployment, protecting your API keys, and complying with the terms of service of any LLM providers you use. The self-signed certificate stack is intended for local/LAN use only — do not expose it to the public internet. Never commit your `.env` file or API keys to version control.
+
 ## What Makes This Different
 
 - **Zero pre-flight scripts.** No `./init-ssl.sh` or `./init-selfsigned.sh`. Everything happens inside the containers on `docker compose up -d`. The nginx and certbot containers generate or obtain certificates on first run, then persist them on shared volumes for subsequent restarts.
