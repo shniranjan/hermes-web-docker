@@ -17,8 +17,13 @@ RUN apt-get update && \
         libolm3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the entire /opt/hermes from the builder
-COPY --from=full-image /opt/hermes /opt/hermes
+# Copy /opt/hermes from builder via BuildKit mount, excluding large dev-only binaries.
+# Uses tar pipe to filter at copy time — avoids writing 300MB+ Playwright/Chromium
+# to the build cache (which causes ENOSPC on low-disk build hosts).
+RUN --mount=from=full-image,src=/opt/hermes,dst=/tmp/hermes-src \
+    cd /tmp/hermes-src && \
+    tar -cf - --exclude='.playwright' --exclude='.cache' . | \
+    tar -xf - -C /opt/hermes/
 
 # Copy Node.js runtime
 COPY --from=full-image /usr/local/bin/node /usr/local/bin/
