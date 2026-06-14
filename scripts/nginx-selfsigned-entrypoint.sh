@@ -17,6 +17,12 @@ KEY_FILE="$CERT_DIR/privkey.pem"
 TEMPLATE="/etc/nginx/conf.d/selfsigned.conf.template"
 CONF_FILE="/etc/nginx/conf.d/default.conf"
 
+# ── Ensure openssl is available (nginx:alpine doesn't include it) ────
+if ! command -v openssl >/dev/null 2>&1; then
+    echo "=== Installing openssl ==="
+    apk add --no-cache openssl
+fi
+
 # ── Generate self-signed certificate ──────────────────────────────────
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo "=== Generating self-signed certificate (first run) ==="
