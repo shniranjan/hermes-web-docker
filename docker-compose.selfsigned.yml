@@ -26,10 +26,12 @@ services:
     entrypoint: /entrypoint.sh
     depends_on:
       - hermes
+    networks:
+      - hermes-net
 
   hermes:
     image: ghcr.io/shniranjan/hermes-agent:latest
-    container_name: hermes
+    container_name: hermes-local
     restart: unless-stopped
     pull_policy: missing
     command: sleep infinity
@@ -37,6 +39,10 @@ services:
       - "9119:9119"
     volumes:
       - hermes_data:/opt/data
+    networks:
+      hermes-net:
+        aliases:
+          - hermes-local
     environment:
       - HERMES_UID=${HERMES_UID:-1000}
       - HERMES_GID=${HERMES_GID:-1000}
@@ -51,3 +57,7 @@ services:
 
 volumes:
   hermes_data:
+
+networks:
+  hermes-net:
+    driver: bridge

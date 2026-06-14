@@ -35,7 +35,7 @@ server {
 
         add_header Set-Cookie "hermes_auth=1; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400" always;
 
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -49,7 +49,7 @@ server {
     # ── WebSocket / SSE / PTY: check cookie only ──
     location /api/ws {
         if ($cookie_hermes_auth != "1") { return 401; }
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -59,7 +59,7 @@ server {
 
     location /api/pty {
         if ($cookie_hermes_auth != "1") { return 401; }
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -69,7 +69,7 @@ server {
 
     location /api/events {
         if ($cookie_hermes_auth != "1") { return 401; }
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

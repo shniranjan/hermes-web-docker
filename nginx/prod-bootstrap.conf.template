@@ -19,7 +19,7 @@ server {
 
     # Everything else: proxy to Hermes (no auth during bootstrap)
     location / {
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -32,7 +32,7 @@ server {
 
     # WebSocket / SSE / PTY endpoints
     location /api/ws {
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -41,7 +41,7 @@ server {
     }
 
     location /api/pty {
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -50,7 +50,7 @@ server {
     }
 
     location /api/events {
-        proxy_pass http://hermes:9119;
+        proxy_pass http://hermes-local:9119;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
