@@ -1,19 +1,16 @@
-# Production HTTPS stack — Hermes Agent + Nginx + Let's Encrypt.
+# Hermes Agent — production stack.
+# Hermes only. Nginx runs in a separate compose stack (see docker-compose.nginx.yml).
 #
 # Prerequisites:
-#   1. Copy .env.example to .env and fill in all values
-#   2. Your domain DNS must point to this server
-#   3. Ports 80 and 443 must be reachable from the internet
+#   1. Copy .env.example to .env and fill in API keys
+#   2. For HTTPS, also start the nginx stack: docker compose -f docker-compose.nginx.yml up -d
 #
 # Quick start:
 #   cp .env.example .env          # then edit .env
 #   docker compose up -d
-#
-# First run will automatically obtain a Let's Encrypt certificate.
-# Renewals happen automatically in the background.
+#   docker compose -f docker-compose.nginx.yml up -d
 
 services:
-  # ── Hermes Agent ───────────────────────────────────────────────────
   hermes:
     image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes-local
@@ -38,55 +35,10 @@ services:
         aliases:
           - hermes-local
 
-  # ── Nginx reverse proxy ────────────────────────────────────────────
-  nginx:
-    image: nginx:alpine
-    container_name: hermes-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
-      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
-    volumes:
-      - ./nginx/prod-bootstrap.conf.template:/etc/nginx/conf.d/bootstrap.conf.template:ro
-      - ./nginx/prod.conf.template:/etc/nginx/conf.d/prod.conf.template:ro
-      - ./scripts/nginx-prod-entrypoint.sh:/entrypoint.sh:ro
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
-    entrypoint: /bin/sh
-    command: /entrypoint.sh
-    depends_on:
-      - hermes
-    networks:
-      - hermes-net
-
-  # ── Certbot — initial cert + auto-renewal ──────────────────────────
-  certbot:
-    image: certbot/certbot:latest
-    container_name: hermes-certbot
-    restart: unless-stopped
-    environment:
-      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
-      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
-      - EMAIL=${EMAIL:-}
-    volumes:
-      - ./scripts/certbot-entrypoint.sh:/entrypoint.sh:ro
-      - ./nginx/prod.conf.template:/etc/nginx/conf.d/prod.conf.template:ro
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    entrypoint: /bin/sh
-    command: /entrypoint.sh
-    depends_on:
-      - nginx
-    networks:
-      - hermes-net
-
 volumes:
   hermes_data:
 
+# Shared network — nginx stack connects as external
 networks:
   hermes-net:
     driver: bridge

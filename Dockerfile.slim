@@ -21,6 +21,7 @@ RUN apt-get update && \
 # Uses tar pipe to filter at copy time — avoids writing 300MB+ Playwright/Chromium
 # to the build cache (which causes ENOSPC on low-disk build hosts).
 RUN --mount=from=full-image,src=/opt/hermes,dst=/tmp/hermes-src \
+    mkdir -p /opt/hermes && \
     cd /tmp/hermes-src && \
     tar -cf - --exclude='.playwright' --exclude='.cache' . | \
     tar -xf - -C /opt/hermes/

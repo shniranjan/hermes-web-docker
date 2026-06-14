@@ -1,0 +1,63 @@
+# Nginx + Certbot — reverse proxy stack for Hermes Agent.
+# Connects to the Hermes stack's shared network (hermes-net).
+# Proxy target: hermes-local:9119 (the Hermes container name + network alias).
+#
+# Prerequisites:
+#   1. Hermes stack must be running first (it creates hermes-net)
+#   2. Copy .env.example to .env and fill in DOMAIN, ACCESS_KEY_SECRET, EMAIL
+#   3. Your domain DNS must point to this server
+#   4. Ports 80 and 443 must be free on the host
+#
+# Quick start:
+#   cp .env.example .env          # then edit .env
+#   docker compose -f docker-compose.nginx.yml up -d
+#
+# First run will automatically obtain a Let's Encrypt certificate.
+# Renewals happen automatically in the background.
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: hermes-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
+      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
+    volumes:
+      - ./nginx/prod-bootstrap.conf.template:/etc/nginx/conf.d/bootstrap.conf.template:ro
+      - ./nginx/prod.conf.template:/etc/nginx/conf.d/prod.conf.template:ro
+      - ./scripts/nginx-prod-entrypoint.sh:/entrypoint.sh:ro
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: /bin/sh
+    command: /entrypoint.sh
+    networks:
+      - hermes-net
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: hermes-certbot
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
+      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
+      - EMAIL=${EMAIL:-}
+    volumes:
+      - ./scripts/certbot-entrypoint.sh:/entrypoint.sh:ro
+      - ./nginx/prod.conf.template:/etc/nginx/conf.d/prod.conf.template:ro
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    entrypoint: /bin/sh
+    command: /entrypoint.sh
+    depends_on:
+      - nginx
+    networks:
+      - hermes-net
+
+networks:
+  hermes-net:
+    external: true
