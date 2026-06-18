@@ -26,10 +26,8 @@ Single-command Docker deployment of Hermes Agent behind nginx with HTTPS. Two st
 
 ## Host Details
 
-- **Production host:** Separate machine from this Pi
-- **Config:** `/srv/docker_config/hermesagent/.hermes/`
-- **Image:** `ghcr.io/shniranjan/hermes-agent:full`
-- **MCP servers active:** time (uvx), sqlite (uvx), sequential-thinking (npx)
+- **Production host:** Separate dedicated machine
+- **Image:** `ghcr.io/shniranjan/hermes-agent`
 
 ## Goals
 
