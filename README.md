@@ -2,6 +2,28 @@
 
 Standalone Docker deployment of [Hermes Agent](https://github.com/NousResearch/hermes-agent) with Nginx reverse proxy, Let's Encrypt SSL, and the complete web dashboard.
 
+> [!CAUTION]
+> ## SECURITY WARNING — READ BEFORE DEPLOYING
+>
+> **The Hermes web dashboard gives anyone who can reach it FULL CONTROL of the host machine.** Through the dashboard, an attacker can:
+> - Run arbitrary shell commands on your server
+> - Read, write, and delete files
+> - Access your API keys and environment variables
+> - Exfiltrate data or pivot to other systems on your network
+>
+> **This is not a hypothetical risk.** The dashboard is a remote shell with a chat interface. Without authentication, anyone on your network — or the internet, if exposed — can issue commands as the user running the container.
+>
+> **The `local` stack has NO authentication at all.** Do not use it on any network where other people or devices are present. Even the `selfsigned` and `production` stacks currently expose the backend port directly, bypassing nginx authentication. These are known issues being addressed.
+>
+> **Minimum precautions:**
+> - Never expose any stack to the public internet without authentication
+> - Use a firewall to restrict access to trusted IPs only
+> - Prefer the self-signed or production stack with `ACCESS_KEY_SECRET` set
+> - Verify that port 9119 is NOT reachable from outside the Docker network
+> - Consider running behind a VPN (WireGuard, Tailscale) rather than exposing ports
+>
+> **You are solely responsible for securing your deployment.** The authors assume no liability for unauthorized access, data loss, or system compromise resulting from use of this software.
+
 ## Credits
 
 This project is a Docker wrapper and deployment configuration for **[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)**, an open-source AI agent framework by [Nous Research](https://nousresearch.com). All agent logic, web dashboard, gateway integrations, MCP support, and more are entirely their work. This repo provides production-ready Docker Compose stacks to make self-hosting painless.
@@ -12,36 +34,43 @@ This project is a Docker wrapper and deployment configuration for **[NousResearc
 ## What Makes This Different
 
 - **Zero pre-flight scripts.** No `./init-ssl.sh` or `./init-selfsigned.sh`. Everything happens inside the containers on `docker compose up -d`. The nginx and certbot containers generate or obtain certificates on first run, then persist them on shared volumes for subsequent restarts.
-- **Cookie-based auth for WebSocket.** The production stack uses a two-step chain: the browser sends `X-Access-Key` once, nginx validates it and sets an `HttpOnly`/`Secure`/`SameSite` cookie. All subsequent WebSocket and SSE connections carry that cookie automatically — no browser extensions needed.
+- **Password-based auth out of the box.** All stacks require authentication. Set `DASHBOARD_PASSWORD` in `.env` and nginx handles the rest — the browser prompts for credentials automatically. No browser extensions needed. An optional `X-Access-Key` cookie mechanism is also available for API/programmatic access.
 - **Three stacks, pick your level.** Local dev with no SSL, self-signed HTTPS for LAN, or full Let's Encrypt for production. All use the same Hermes image.
 
 ## Quick Start — Pick Your Stack
 
 | Stack | Compose File | SSL | Domain | Auth | When to use |
-|---|---|---|---|---|---|
-| **Local** | `docker-compose.local.yml` | ❌ | ❌ | ❌ | Dev / testing, `http://localhost:9119` |
-| **Self-signed** | `docker-compose.selfsigned.yml` | ✅ self-signed | ❌ | ✅ cookie-based | LAN access with HTTPS |
-| **Production** | `docker-compose.yml` | ✅ Let's Encrypt | ✅ required | ✅ cookie-based | Internet-facing deployment |
+|---|---|---|---|---|---|---|
+| **Local** | `docker-compose.local.yml` | ❌ | ❌ | ✅ basic auth | Isolated dev / localhost only |
+| **Self-signed** | `docker-compose.selfsigned.yml` | ✅ self-signed | ❌ | ✅ basic auth | LAN access with HTTPS |
+| **Production** | `docker-compose.yml` + nginx | ✅ Let's Encrypt | ✅ required | ✅ basic auth | Internet-facing deployment |
 
-### Local (no SSL)
+### Local (no SSL, basic auth)
+
+> [!WARNING]
+> This stack has no SSL/TLS. The password is sent in cleartext over the network. Only use on localhost or a fully isolated trusted network.
 
 ```bash
+cp .env.example .env
+# Edit .env — set DASHBOARD_PASSWORD + at least one API key
+nano .env
+
 docker compose -f docker-compose.local.yml up -d
-# Open http://localhost:9119
+# Open http://localhost (browser will prompt for username/password)
 ```
 
 ### Self-Signed HTTPS (local / LAN)
 
 ```bash
 cp .env.example .env
-# Edit .env — set ACCESS_KEY_SECRET + at least one API key
+# Edit .env — set DASHBOARD_PASSWORD, ACCESS_KEY_SECRET (optional), + API keys
 nano .env
 
 docker compose -f docker-compose.selfsigned.yml up -d
-# Open https://localhost (accept the security warning)
+# Open https://localhost (accept the security warning, log in with password)
 ```
 
-The certificate is generated automatically on first run. Access is protected by the same cookie-based auth as production (send `X-Access-Key` header, browser gets a session cookie).
+The certificate is generated automatically on first run. Access is protected by basic auth (password) and optionally the X-Access-Key cookie mechanism.
 
 ### Production (Let's Encrypt + Domain)
 
@@ -62,9 +91,17 @@ That's it. On first run:
 
 Renewals happen automatically every 12 hours in the background.
 
-## Access Security (Production)
+## Access Security
 
-The production stack uses a **two-step cookie-based auth chain** so the browser dashboard works seamlessly:
+Two authentication methods are supported, both at the nginx level:
+
+### 1. Basic Auth (primary, recommended)
+
+Set `DASHBOARD_USER` and `DASHBOARD_PASSWORD` in `.env`. Your browser will prompt for credentials on first access. Works with all browsers, no extensions needed.
+
+### 2. X-Access-Key / Cookie (alternative)
+
+The production and self-signed stacks also support cookie-based auth via a shared secret:
 
 ```
 1. Browser loads https://domain.com  →  sends X-Access-Key: your-secret
@@ -93,16 +130,18 @@ Once authenticated, the cookie takes over for the session. No header needed on s
 Copy `.env.example` to `.env` and fill in:
 
 | Variable | Stack | Required? | Description |
-|---|---|---|---|
+|---|---|---|---|---|
 | `ANTHROPIC_API_KEY` | All | Recommended | Anthropic API key |
 | `OPENAI_API_KEY` | All | Recommended | OpenAI API key |
 | `DEEPSEEK_API_KEY` | All | Recommended | DeepSeek API key |
+| `DASHBOARD_USER` | All | No | Username for basic auth (default: `admin`) |
+| `DASHBOARD_PASSWORD` | All | **Yes** | Password for dashboard basic auth |
 | `DOMAIN` | Production | **Yes** | Your domain (e.g. `hermes.example.com`) |
-| `ACCESS_KEY_SECRET` | Production, Self-signed | **Yes** | Shared secret for dashboard protection |
+| `ACCESS_KEY_SECRET` | Production, Self-signed | No | Alternative: shared secret for cookie auth |
 | `EMAIL` | Production | No | Email for Let's Encrypt notifications |
 | `HERMES_UID` | All | No | UID inside container (default: 1000) |
 | `HERMES_GID` | All | No | GID inside container (default: 1000) |
-| `HERMES_DASHBOARD_INSECURE` | All | No | Set to 0 to disable INSECURE mode |
+| `HERMES_DASHBOARD_INSECURE` | All | No | Set to 1 to disable auth (NOT recommended) |
 
 ## Architecture
 
@@ -127,17 +166,21 @@ Copy `.env.example` to `.env` and fill in:
 ## File Structure
 
 ```
-├── docker-compose.yml              # Production: Nginx + Certbot + Hermes
+├── docker-compose.yml              # Production: Hermes (nginx stack separate)
 ├── docker-compose.selfsigned.yml   # Local HTTPS with self-signed cert
-├── docker-compose.local.yml        # Hermes only, no SSL
+├── docker-compose.local.yml        # Local HTTP with basic auth
+├── docker-compose.nginx.yml        # Production nginx + Certbot stack
 ├── .env.example                    # All supported environment variables
 ├── nginx/
 │   ├── prod-bootstrap.conf.template # Bootstrap config (pre-SSL, ACME passthrough)
 │   ├── prod.conf.template          # Full production SSL config
-│   └── selfsigned.conf             # Self-signed HTTPS config
+│   ├── selfsigned.conf.template    # Self-signed HTTPS config
+│   └── local.conf.template         # Local HTTP config (basic auth only)
 ├── scripts/
 │   ├── certbot-entrypoint.sh       # Initial cert + renewal loop
-│   └── nginx-selfsigned-entrypoint.sh  # Self-signed cert generation
+│   ├── nginx-prod-entrypoint.sh    # Prod SSL + htpasswd generation
+│   ├── nginx-selfsigned-entrypoint.sh  # Self-signed cert + htpasswd generation
+│   └── nginx-local-entrypoint.sh   # Local htpasswd generation
 ├── Dockerfile.slim                 # Slim image build
 └── certbot/                        # Shared volume (certs + ACME challenges)
     ├── www/                        # ACME challenge webroot
@@ -185,6 +228,24 @@ docker compose down
 docker compose -f docker-compose.selfsigned.yml logs -f nginx
 ```
 
+## Security
+
+### Authentication
+
+All three stacks now require authentication:
+
+| Stack | Auth method | Password sent |
+|---|---|---|
+| **Local** | Basic auth (HTTP) | Cleartext — localhost only |
+| **Self-signed** | Basic auth + optional X-Access-Key cookie | Encrypted (HTTPS) |
+| **Production** | Basic auth + optional X-Access-Key cookie | Encrypted (HTTPS) |
+
+Set `DASHBOARD_USER` and `DASHBOARD_PASSWORD` in `.env`. On `docker compose up`, the nginx entrypoint generates an htpasswd file automatically. The browser will prompt for username/password on first access.
+
+The `ACCESS_KEY_SECRET` cookie-based mechanism is still available as an alternative (useful for API access or browser extensions). With `satisfy any`, either basic auth OR the access key grants entry.
+
+Hermes itself is no longer directly exposed on any host port — all traffic must go through nginx.
+
 ## Troubleshooting
 
 **Q: Dashboard shows "Gateway not connected"**
@@ -198,9 +259,16 @@ The gateway starts inside the container — verify `HERMES_GATEWAY_BOOTSTRAP_STA
 - Make sure `DOMAIN` is set correctly in `.env`
 
 **Q: Cookie auth not working / 401 on WebSocket**
-- Make sure you access the dashboard via HTTPS (the cookie is `Secure`)
+- First, ensure you're logged in via basic auth (browser password prompt)
+- If using X-Access-Key instead: make sure you access the dashboard via HTTPS (the cookie is `Secure`)
 - Clear cookies and re-authenticate with the `X-Access-Key` header
 - Check `ACCESS_KEY_SECRET` in `.env` matches what you're sending
+
+**Q: Forgot dashboard password**
+Check `DASHBOARD_PASSWORD` in `.env`. To change it, update the value and restart the nginx container:
+```bash
+docker compose restart nginx
+```
 
 **Q: Permission errors**
 Set correct UID/GID:

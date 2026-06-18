@@ -4,7 +4,7 @@
 #
 # Prerequisites:
 #   1. Hermes stack must be running first (it creates hermes-net)
-#   2. Copy .env.example to .env and fill in DOMAIN, ACCESS_KEY_SECRET, EMAIL
+#   2. Copy .env.example to .env and fill in DOMAIN, DASHBOARD_PASSWORD, EMAIL
 #   3. Your domain DNS must point to this server
 #   4. Ports 80 and 443 must be free on the host
 #
@@ -25,7 +25,9 @@ services:
       - "443:443"
     environment:
       - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
-      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
+      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:-}
+      - DASHBOARD_USER=${DASHBOARD_USER:-admin}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:?Set DASHBOARD_PASSWORD in .env}
     volumes:
       - ./nginx/prod-bootstrap.conf.template:/etc/nginx/conf.d/bootstrap.conf.template:ro
       - ./nginx/prod.conf.template:/etc/nginx/conf.d/prod.conf.template:ro
@@ -43,7 +45,7 @@ services:
     restart: unless-stopped
     environment:
       - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
-      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
+      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:-}
       - EMAIL=${EMAIL:-}
     volumes:
       - ./scripts/certbot-entrypoint.sh:/entrypoint.sh:ro

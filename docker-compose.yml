@@ -3,7 +3,8 @@
 #
 # Prerequisites:
 #   1. Copy .env.example to .env and fill in API keys
-#   2. For HTTPS, also start the nginx stack: docker compose -f docker-compose.nginx.yml up -d
+#   2. Set DASHBOARD_PASSWORD for basic auth
+#   3. For HTTPS, also start the nginx stack: docker compose -f docker-compose.nginx.yml up -d
 #
 # Quick start:
 #   cp .env.example .env          # then edit .env
@@ -25,7 +26,7 @@ services:
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_HOST=0.0.0.0
       - HERMES_DASHBOARD_PORT=9119
-      - HERMES_DASHBOARD_INSECURE=${HERMES_DASHBOARD_INSECURE:-1}
+      - HERMES_DASHBOARD_INSECURE=0
       - HERMES_GATEWAY_BOOTSTRAP_STATE=running
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}

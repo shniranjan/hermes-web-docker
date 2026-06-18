@@ -1,12 +1,11 @@
 # Nginx config for local HTTPS with self-signed certificate.
-# Cookie-based access control — same pattern as production, but with
-# a self-signed cert instead of Let's Encrypt.
+# Password-based auth (auth_basic) + optional X-Access-Key cookie auth.
 #
 # No Certbot, no ACME challenges — suitable for local-only / LAN use.
 # Browser will show a security warning. Click Advanced → Proceed.
 #
 # Variables substituted by envsubst:
-#   ${ACCESS_KEY_SECRET} — shared secret for X-Access-Key header
+#   ${ACCESS_KEY_SECRET} — shared secret for X-Access-Key header (optional)
 
 server {
     listen 80;
@@ -26,7 +25,12 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
 
-    # ── Root: validate access key / cookie, then proxy ──
+    # Password auth (primary) or X-Access-Key / cookie (alternative)
+    auth_basic "Hermes Dashboard";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    satisfy any;
+
+    # ── Root: validate access key / cookie (fallback if basic auth fails) ──
     location / {
         set $deny "1";
         if ($http_x_access_key = "${ACCESS_KEY_SECRET}") { set $deny "0"; }

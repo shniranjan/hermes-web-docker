@@ -1,12 +1,12 @@
 # Local HTTPS stack — Nginx with self-signed SSL + Hermes Agent.
-# No domain, no Certbot. Cookie-based access control (same as production).
+# No domain, no Certbot. Password + cookie-based access control.
 #
 # Quick start:
-#   cp .env.example .env              # set ACCESS_KEY_SECRET + API keys
+#   cp .env.example .env              # set DASHBOARD_PASSWORD + API keys
 #   docker compose -f docker-compose.selfsigned.yml up -d
 #
 # Then open https://localhost (browser will warn about self-signed cert —
-# click Advanced → Proceed).
+# click Advanced → Proceed). Log in with the password from .env.
 
 services:
   nginx:
@@ -17,7 +17,9 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:?Set ACCESS_KEY_SECRET in .env}
+      - ACCESS_KEY_SECRET=${ACCESS_KEY_SECRET:-}
+      - DASHBOARD_USER=${DASHBOARD_USER:-admin}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:?Set DASHBOARD_PASSWORD in .env}
     volumes:
       - ./nginx/selfsigned.conf.template:/etc/nginx/conf.d/selfsigned.conf.template:ro
       - ./scripts/nginx-selfsigned-entrypoint.sh:/entrypoint.sh:ro
@@ -35,8 +37,8 @@ services:
     restart: unless-stopped
     pull_policy: missing
     command: sleep infinity
-    ports:
-      - "9119:9119"
+    # Hermes is only exposed to nginx via the Docker network — NOT on the host.
+    # port 9119 is intentionally NOT exposed to prevent bypassing auth.
     volumes:
       - hermes_data:/opt/data
     networks:
@@ -49,7 +51,7 @@ services:
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_HOST=0.0.0.0
       - HERMES_DASHBOARD_PORT=9119
-      - HERMES_DASHBOARD_INSECURE=${HERMES_DASHBOARD_INSECURE:-1}
+      - HERMES_DASHBOARD_INSECURE=0
       - HERMES_GATEWAY_BOOTSTRAP_STATE=running
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}

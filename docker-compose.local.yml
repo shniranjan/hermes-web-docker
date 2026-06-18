@@ -1,25 +1,49 @@
-# Local development stack — Hermes Agent only, no nginx, no SSL.
+# Local development stack — Hermes Agent with nginx + basic auth.
 # Just `docker compose -f docker-compose.local.yml up -d`
-# Dashboard at http://localhost:9119
+# Dashboard at http://localhost (basic auth password from .env)
+#
+# WARNING: This stack has no SSL/TLS. The password is sent in cleartext
+# over the network. Only use on localhost or an isolated trusted network.
 
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: hermes-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - DASHBOARD_USER=${DASHBOARD_USER:-admin}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:?Set DASHBOARD_PASSWORD in .env}
+    volumes:
+      - ./nginx/local.conf.template:/etc/nginx/conf.d/local.conf.template:ro
+      - ./scripts/nginx-local-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    depends_on:
+      - hermes
+    networks:
+      - hermes-net
+
   hermes:
     image: ghcr.io/shniranjan/hermes-agent:latest
     container_name: hermes-local
     restart: unless-stopped
     pull_policy: missing
     command: sleep infinity
-    ports:
-      - "9119:9119"
+    # Hermes is only exposed to nginx via the Docker network — NOT on the host.
     volumes:
       - hermes_data:/opt/data
+    networks:
+      hermes-net:
+        aliases:
+          - hermes-local
     environment:
       - HERMES_UID=${HERMES_UID:-1000}
       - HERMES_GID=${HERMES_GID:-1000}
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_HOST=0.0.0.0
       - HERMES_DASHBOARD_PORT=9119
-      - HERMES_DASHBOARD_INSECURE=${HERMES_DASHBOARD_INSECURE:-1}
+      - HERMES_DASHBOARD_INSECURE=0
       - HERMES_GATEWAY_BOOTSTRAP_STATE=running
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -27,3 +51,7 @@ services:
 
 volumes:
   hermes_data:
+
+networks:
+  hermes-net:
+    driver: bridge
